@@ -74,7 +74,7 @@ plot1
 linear_mod2 = lm(bwt ~ blength + gaweeks, data = birthweight)
 linear_mod3 = lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = birthweight)
 
- #plotting three models to get a sense for their goodness of fit.
+ #plotting a model to get a sense for their goodness of fit.
 
 cv_df = 
   crossv_mc(birthweight, 100)
@@ -112,3 +112,90 @@ cv_df %>%
 ```
 
 # Problem 2
+
+``` r
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+    ## Registered S3 method overwritten by 'crul':
+    ##   method                 from
+    ##   as.character.form_file httr
+
+    ## Registered S3 method overwritten by 'hoardr':
+    ##   method           from
+    ##   print.cache_info httr
+
+    ## file path:          /Users/dania/Library/Caches/rnoaa/ghcnd/USW00094728.dly
+
+    ## file last updated:  2019-10-01 08:28:51
+
+    ## file min/max dates: 1869-01-01 / 2019-09-30
+
+``` r
+#Create a linear model
+lm(tmax ~ tmin, data = weather_df) %>% 
+  broom::tidy() %>% 
+  knitr::kable(digits = 3)
+```
+
+| term        | estimate | std.error | statistic | p.value |
+| :---------- | -------: | --------: | --------: | ------: |
+| (Intercept) |    7.209 |     0.226 |    31.847 |       0 |
+| tmin        |    1.039 |     0.017 |    61.161 |       0 |
+
+``` r
+#Create the boot sample
+x = weather_df
+
+boot_sample = function(x) {
+  sample_frac(x, replace = TRUE)
+}
+
+#Check to see if this is working.
+
+boot_sample(x) %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_point(alpha = .5) +
+  stat_smooth(method = "lm")
+```
+
+![](Homework-6_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+
+``` r
+#Drawing 5000 bootstrap samples
+
+boot_straps_data = 
+  list(
+    strap_number = 1:5000,
+    strap_sample = rerun(5000, boot_sample(x))
+  )
+
+#Getting the r-hat-squared
+
+weather_df %>% 
+  modelr::bootstrap(n = 5000) %>% 
+  mutate(
+    models = map(strap, ~lm(tmax ~ tmin, data =.x)),
+    results = map(models, broom::glance)) %>% 
+    select(-strap, -models) %>% 
+    unnest(results) %>% 
+    janitor::clean_names() %>% 
+  ggplot(aes(x = r_squared)) + #create a density plot of r-squared
+  geom_density()
+```
+
+![](Homework-6_files/figure-gfm/unnamed-chunk-4-2.png)<!-- -->
+
+``` r
+#Getting the log(β̂ 0∗β̂ 1)
+```
