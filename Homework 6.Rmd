@@ -93,8 +93,60 @@ cv_df %>%
 
 ```
 # Problem 2
+```{r Load data}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
 ```{r}
 
+#Create a linear model
+lm(tmax ~ tmin, data = weather_df) %>% 
+  broom::tidy() %>% 
+  knitr::kable(digits = 3)
+
+#Create the boot sample
+x = weather_df
+
+boot_sample = function(x) {
+  sample_frac(x, replace = TRUE)
+}
+
+#Check to see if this is working.
+
+boot_sample(x) %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_point(alpha = .5) +
+  stat_smooth(method = "lm")
+
+#Drawing 5000 bootstrap samples
+
+boot_straps = 
+  tibble(
+    strap_number = 1:5000,
+    strap_sample = rerun(5000, boot_sample(x))
+  )
+
+#Run the linear model on the 5000 samples
+bootstrap_results = 
+  boot_straps %>% 
+  mutate(
+    models = map(strap_sample, ~lm(tmax ~ tmin, data = x) ),
+    results = map(models, broom::tidy)) %>% 
+  select(-strap_sample, -models) %>% 
+  unnest() %>% 
+  group_by(term) %>% 
+  summarize(boot_se = sd(estimate))
+
 ```
+
 
 
