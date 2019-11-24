@@ -89,7 +89,7 @@ cv_df %>%
   mutate(model = fct_inorder(model)) %>% 
   ggplot(aes(x = model, y = rmse)) + geom_violin()
 
-#I can see that my linear model three (lm3) is the best one because it produces the lowest root mean square error. 
+#I can see that linear model three (lm3) is the best one because it produces the lowest root mean square error. 
 
 ```
 # Problem 2
@@ -136,7 +136,6 @@ boot_straps_data =
   )
 
 #Getting the r-hat-squared
-
 weather_df %>% 
   modelr::bootstrap(n = 5000) %>% 
   mutate(
@@ -149,7 +148,22 @@ weather_df %>%
   geom_density()
 
 #Getting the log(β̂ 0∗β̂ 1)
-
+data1 = 
+weather_df %>% 
+  modelr::bootstrap(n = 1000) %>% 
+  mutate(
+    models = map(strap, ~lm(tmax ~ tmin, data =.x)),
+    results = map(models, broom::tidy)) %>% 
+    select(-strap, -models) %>% 
+    unnest(results) %>% 
+   janitor::clean_names() %>% 
+  pivot_wider(
+    names_from = "term",
+    values_from = "estimate"
+  )  %>% 
+  rename(intercept= '(Intercept)') %>% 
+  mutate(log_calc = log(intercept*tmin)) %>% 
+  pull(log_calc, quantile(., probs = c(0.025, 0.975, 0.95)))
 
 
 ```

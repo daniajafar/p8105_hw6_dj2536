@@ -69,7 +69,7 @@ plot1
 ![](Homework-6_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
 ``` r
-#Comparing my model to two others
+#Modeling the two other models that are given
 
 linear_mod2 = lm(bwt ~ blength + gaweeks, data = birthweight)
 linear_mod3 = lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = birthweight)
@@ -108,7 +108,7 @@ cv_df %>%
 ![](Homework-6_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 ``` r
-#I can see that my linear model three (lm3) is the best one because it produces the lowest root mean square error. 
+#I can see that linear model three (lm3) is the best one because it produces the lowest root mean square error. 
 ```
 
 # Problem 2
@@ -181,15 +181,18 @@ boot_straps_data =
   )
 
 #Getting the r-hat-squared
+weather_bootstrap = weather_df %>% 
+  modelr::bootstrap(n = 5000) 
 
-weather_df %>% 
-  modelr::bootstrap(n = 5000) %>% 
+weather1 = weather_bootstrap %>% 
   mutate(
     models = map(strap, ~lm(tmax ~ tmin, data =.x)),
     results = map(models, broom::glance)) %>% 
     select(-strap, -models) %>% 
     unnest(results) %>% 
-    janitor::clean_names() %>% 
+    janitor::clean_names() 
+
+weather1 %>% 
   ggplot(aes(x = r_squared)) + #create a density plot of r-squared
   geom_density()
 ```
@@ -197,5 +200,46 @@ weather_df %>%
 ![](Homework-6_files/figure-gfm/unnamed-chunk-4-2.png)<!-- -->
 
 ``` r
-#Getting the log(β̂ 0∗β̂ 1)
+#getting quantiles/ 95% CI
+weather1 %>% 
+  pull(r_squared) %>% 
+quantile(., probs = c(0.025, 0.975, 0.95), na.rm = TRUE)
 ```
+
+    ##      2.5%     97.5%       95% 
+    ## 0.8944239 0.9267152 0.9246803
+
+``` r
+#Getting the log(β̂ 0∗β̂ 1)
+data1 = 
+weather_bootstrap%>% 
+  mutate(
+    models = map(strap, ~lm(tmax ~ tmin, data =.x)),
+    results = map(models, broom::tidy)) %>% 
+    select(-strap, -models) %>% 
+    unnest(results) %>% 
+   janitor::clean_names() %>% 
+   select(id, term, estimate) %>% 
+   # spread(key = term, value = estimate)
+  pivot_wider(
+    names_from = "term",
+    values_from = "estimate"
+  )  %>%
+  rename(intercept= '(Intercept)') %>% 
+  mutate(log_calc = log(intercept*tmin)) 
+
+data1 %>% 
+   pull(log_calc) %>% 
+  quantile(., probs = c(0.025, 0.975, 0.95), na.rm = TRUE)
+```
+
+    ##     2.5%    97.5%      95% 
+    ## 1.965795 2.059422 2.051686
+
+``` r
+data1 %>% 
+  ggplot(aes(x = log_calc)) + #create a density plot of r-squared
+  geom_density()
+```
+
+![](Homework-6_files/figure-gfm/unnamed-chunk-4-3.png)<!-- -->
