@@ -1,10 +1,12 @@
 Homework 6
 ================
 Dania Jafar
-11/15/2019
+11/25/2019
 
 ``` r
+#load the data
 birthweight = read.csv("./birthweight.csv") %>% 
+#clean the data by converting numeric variables to factor
   mutate(babysex = as.factor(babysex),
          frace = as.factor(frace),
          mrace = as.factor(mrace),
@@ -13,9 +15,13 @@ birthweight = read.csv("./birthweight.csv") %>%
 
 # Problem 1
 
-``` r
-#In this model, I have decided to use mother's smoking status, race, age at delivery, and baby's gestational age in weeks as the predictors for my model. I have chosen these factors as they seem to be some of the most important predictors for a child's weight at birth. 
+In this model, I have decided to use mother’s smoking status, race, age
+at delivery, and baby’s gestational age in weeks as the predictors for
+my model. I have chosen these factors as they seem to be some of the
+most important predictors for a child’s weight at
+birth.
 
+``` r
 birthweight2 = birthweight %>% #create a new dataset for the model I want to generate
   select(bwt, smoken, mrace, gaweeks, momage)
 
@@ -56,12 +62,12 @@ library(modelr)
 
 birthweight2 = modelr::add_predictions(birthweight2, fit)
 
-#plots of birthweight by residuals 
+#I am now creating a plot of model residuals against fitted predicted birthweight values. These predicted values are based on the model I created using the 4 predictors of bwt, smoken, mrace, gaweeks, and momage. 
 plot1 = 
 birthweight2 %>%   #scatter plot
   modelr::add_residuals(fit) %>% 
   ggplot(aes(x = pred, y = resid)) + geom_point() +
-  labs(x = "predicted birthweight", y = "residual")
+  labs(x = "Predicted Birthweight", y = "Residual")
 
 plot1
 ```
@@ -74,26 +80,29 @@ plot1
 linear_mod2 = lm(bwt ~ blength + gaweeks, data = birthweight)
 linear_mod3 = lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = birthweight)
 
- #plotting a model to get a sense for their goodness of fit.
+#plotting a model to get a sense for their goodness of fit.
 
 cv_df = 
   crossv_mc(birthweight, 100)
 
+#training and testing
 cv_df =
   cv_df %>% 
   mutate(
     train = map(train, as_tibble),
     test = map(test, as_tibble))
 
+#I have used mutate + map & map2 to fit models to training data and obtain corresponding RMSEs for the testing data
 cv_df = 
   cv_df %>% 
-  mutate(fit  = map(train, ~lm(bwt ~ smoken + mrace + gaweeks + momage, data = .x)),
-         linear_mod2  = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
-         linear_mod3  = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = .x))) %>% 
+mutate(fit  = map(train, ~lm(bwt ~ smoken + mrace + gaweeks + momage, data = .x)),
+       linear_mod2  = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+       linear_mod3  = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = .x))) %>% 
   mutate(rmse_fit = map2_dbl(fit, test, ~rmse(model = .x, data = .y)),
          rmse_lm2 = map2_dbl(linear_mod2, test, ~rmse(model = .x, data = .y)),
          rmse_lm3 = map2_dbl(linear_mod3, test, ~rmse(model = .x, data = .y)))
 
+#plotting the prediction error distribution for each candidate model.
 cv_df %>% 
   select(starts_with("rmse")) %>% 
   pivot_longer(
@@ -114,6 +123,7 @@ cv_df %>%
 # Problem 2
 
 ``` r
+#Load in the data
 weather_df = 
   rnoaa::meteo_pull_monitors(
     c("USW00094728"),
@@ -142,7 +152,7 @@ weather_df =
     ## file min/max dates: 1869-01-01 / 2019-09-30
 
 ``` r
-#Create a linear model
+#Create a linear model where tmin is the predictor and tmax is the outcome
 lm(tmax ~ tmin, data = weather_df) %>% 
   broom::tidy() %>% 
   knitr::kable(digits = 3)
@@ -207,11 +217,11 @@ quantile(., probs = c(0.025, 0.975, 0.95), na.rm = TRUE)
 ```
 
     ##      2.5%     97.5%       95% 
-    ## 0.8944239 0.9267152 0.9246803
+    ## 0.8940573 0.9272799 0.9249849
 
 ``` r
 #Getting the log(β̂ 0∗β̂ 1)
-data1 = 
+log_info = 
 weather_bootstrap%>% 
   mutate(
     models = map(strap, ~lm(tmax ~ tmin, data =.x)),
@@ -228,18 +238,22 @@ weather_bootstrap%>%
   rename(intercept= '(Intercept)') %>% 
   mutate(log_calc = log(intercept*tmin)) 
 
-data1 %>% 
+log_info %>% 
    pull(log_calc) %>% 
   quantile(., probs = c(0.025, 0.975, 0.95), na.rm = TRUE)
 ```
 
     ##     2.5%    97.5%      95% 
-    ## 1.965795 2.059422 2.051686
+    ## 1.964753 2.058378 2.051427
 
 ``` r
-data1 %>% 
+log_info %>% 
   ggplot(aes(x = log_calc)) + #create a density plot of r-squared
   geom_density()
 ```
 
-![](Homework-6_files/figure-gfm/unnamed-chunk-4-3.png)<!-- -->
+![](Homework-6_files/figure-gfm/unnamed-chunk-4-3.png)<!-- --> The first
+density plot I’ve created is of the r-squared. It shows the frequency of
+the various r-squared values for the 5000 bootstrap samples. The second
+density plot is of the log(Bo x B1) and shows the frequency of the
+various log(Bo x B1) values for the 5000 bootstrap samples.
